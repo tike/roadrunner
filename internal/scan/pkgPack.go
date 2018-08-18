@@ -6,9 +6,9 @@ import (
 	"sort"
 )
 
-type pkgPack map[string]*build.Package
+type PkgPack map[string]*build.Package
 
-func (p pkgPack) SortedNames() []string {
+func (p PkgPack) SortedNames() []string {
 	var names = make(sort.StringSlice, 0, len(p))
 	for name := range p {
 		names = append(names, name)
@@ -18,7 +18,7 @@ func (p pkgPack) SortedNames() []string {
 	return names
 }
 
-func (p pkgPack) FileList() []string {
+func (p PkgPack) FileList() []string {
 	var names = make(sort.StringSlice, 0, 5*len(p))
 	for _, pkg := range p {
 		for _, file := range pkg.GoFiles {

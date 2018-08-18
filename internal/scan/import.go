@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-func GetPkgs(importPath string) (pkgPack, error) {
-	pack := make(pkgPack)
+func GetPkgs(importPath string) (PkgPack, error) {
+	pack := make(PkgPack)
 	pkg, err := findPkg(importPath, gopaths()...)
 	if err != nil {
 		return nil, err
@@ -51,7 +51,7 @@ func detectVendorFolder(path string) (string, error) {
 	return vendorFolder, nil
 }
 
-func getPkgs(found pkgPack, importPath string, gopath ...string) (pkgPack, error) {
+func getPkgs(found PkgPack, importPath string, gopath ...string) (PkgPack, error) {
 	if importPath == "C" {
 		return found, nil
 	}

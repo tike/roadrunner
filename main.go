@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/tike/roadrunner/internal/scan"
 )
@@ -25,6 +26,11 @@ func main() {
 	if verbose {
 		printPackageList(pkgs)
 	}
+	_, err = watch(pkgs.FileList()...)
+	if err != nil {
+		fmt.Println("error setting up file watcher:", err)
+	}
+	time.Sleep(1 * time.Minute)
 }
 
 func printPackageList(packs scan.PkgPack) {

@@ -21,9 +21,10 @@ func (p PkgPack) SortedNames() []string {
 func (p PkgPack) FileList() []string {
 	var names = make(sort.StringSlice, 0, 5*len(p))
 	for _, pkg := range p {
-		for _, file := range pkg.GoFiles {
-			names = append(names, filepath.Join(pkg.ImportPath, file))
-		}
+		names = append(names, filepath.Join(pkg.SrcRoot, pkg.ImportPath))
+		//		for _, file := range pkg.GoFiles {
+		//			names = append(names, filepath.Join(pkg.SrcRoot, pkg.ImportPath, file))
+		//		}
 	}
 
 	names.Sort()

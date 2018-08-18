@@ -26,7 +26,7 @@ func main() {
 	if verbose {
 		printPackageList(pkgs)
 	}
-	_, err = watch(pkgs.FileList()...)
+	_, err = watch(pkgs.FileList(), flag.Args())
 	if err != nil {
 		fmt.Println("error setting up file watcher:", err)
 	}
@@ -47,7 +47,7 @@ func flagFoo() {
 	flag.Usage = Usage
 	flag.BoolVar(&verbose, "v", true, "verbose output")
 	flag.Parse()
-	if flag.NArg() != 1 {
+	if flag.NArg() < 1 {
 		flag.Usage()
 		os.Exit(127)
 	}

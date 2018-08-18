@@ -10,7 +10,7 @@ func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
 
-func watch(files ...string) (chan<- bool, error) {
+func watch(files []string, cmd []string) (chan<- bool, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -23,20 +23,19 @@ func watch(files ...string) (chan<- bool, error) {
 			return nil, err
 		}
 	}
-	return doWatch(watcher), nil
+	return doWatch(watcher, cmd), nil
 }
 
-func doWatch(watcher *fsnotify.Watcher) chan<- bool {
+func doWatch(watcher *fsnotify.Watcher, cmd []string) chan<- bool {
 	done := make(chan bool)
+	pkg, args := cmd[0], cmd[1:]
 	go func() {
 		defer watcher.Close()
 		for {
 			select {
 			case event := <-watcher.Events:
 				log.Println("event:", event)
-				if event.Op&fsnotify.Write == fsnotify.Write {
-					log.Println("modified file:", event.Name)
-				}
+				fullCycle(pkg, args...)
 			case err := <-watcher.Errors:
 				log.Println("error:", err)
 			case <-done:

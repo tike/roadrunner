@@ -3,6 +3,7 @@ package scan
 import (
 	"fmt"
 	"go/build"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,9 +18,11 @@ func GetPkgs(importPath string) (PkgPack, error) {
 	}
 	pack[importPath] = pkg
 
-	vendorFolder, err := detectVendorFolder(pkg.Dir)
-	if err != nil {
-		return nil, err
+	vendorFolder := detectVendorFolder(pkg.Dir)
+	if vendorFolder != "" {
+		log.Printf("vendor folder detected: %s", vendorFolder)
+	} else {
+		log.Printf("no vendor folder found.")
 	}
 
 	var gopath []string
@@ -38,17 +41,19 @@ func GetPkgs(importPath string) (PkgPack, error) {
 	return pack, nil
 }
 
-func detectVendorFolder(path string) (string, error) {
-	vendorFolder := filepath.Join(path, "vendor")
-	fInfo, err := os.Stat(vendorFolder)
-	if err != nil {
-		fmt.Println("stat:", err)
-		return "", err
+func detectVendorFolder(path string) string {
+	for prfx := path; filepath.Base(prfx) != "src"; prfx = filepath.Dir(prfx) {
+		vendorFolder := filepath.Join(prfx, "vendor")
+		fInfo, err := os.Stat(vendorFolder)
+		if err != nil {
+			continue
+		}
+		if fInfo.IsDir() {
+			return vendorFolder
+		}
+		log.Println("vendorFolder", prfx)
 	}
-	if !fInfo.IsDir() {
-		return "", nil
-	}
-	return vendorFolder, nil
+	return ""
 }
 
 func getPkgs(found PkgPack, importPath string, gopath ...string) (PkgPack, error) {

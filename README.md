@@ -6,5 +6,8 @@ When a change occurs anywhere it recompiles and restarts the binary.
 `go get github.com/tike/roadrunner`
 
 # run
-`roadrunner my/import/path -flag forBinary arg for binary`
-
+`roadrunner my/import/path args for binary`
+or
+`roadrunner ./mypkg args for binary`
+or
+`roadrunner . args for binary`

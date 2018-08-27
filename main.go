@@ -27,7 +27,7 @@ func main() {
 	flagFoo()
 
 	log.Printf("\033[32mpackage to watch: %s\033[0m", flag.Arg(0))
-	pkgs, err := scan.GetPkgs(flag.Arg(0))
+	pkgs, importPath, err := scan.GetPkgs(flag.Arg(0))
 	if err != nil {
 		log.Printf("\033[31mcouldn't find package %s\033[0m", err)
 		os.Exit(1)
@@ -36,7 +36,12 @@ func main() {
 		printPackageList(pkgs)
 	}
 
-	done, restart, err := watch.Watch(pkgs.FileList(), flag.Args(), threshold, verbose)
+	args := flag.Args()
+	if flag.Arg(0)[:1] == "." {
+		args[0] = importPath
+	}
+
+	done, restart, err := watch.Watch(pkgs.FileList(), args, threshold, verbose)
 	if err != nil {
 		log.Printf("\033[31merror setting up file watcher: %s\033[0m", err)
 	}

@@ -10,11 +10,11 @@ import (
 	"strings"
 )
 
-func GetPkgs(importPath string) (PkgPack, error) {
+func GetPkgs(importPath string) (PkgPack, string, error) {
 	pack := make(PkgPack)
 	pkg, err := findPkg(importPath, gopaths()...)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	pack[importPath] = pkg
 
@@ -35,10 +35,10 @@ func GetPkgs(importPath string) (PkgPack, error) {
 	for _, dep := range pkg.Imports {
 		pack, err = getPkgs(pack, dep, gopath...)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 	}
-	return pack, nil
+	return pack, pkg.ImportPath, nil
 }
 
 func detectVendorFolder(path string) string {
@@ -87,6 +87,17 @@ func getPkgs(found PkgPack, importPath string, gopath ...string) (PkgPack, error
 }
 
 func findPkg(importPath string, gopath ...string) (*build.Package, error) {
+	if importPath[:1] == "." {
+		AbsImportPath, err := filepath.Abs(importPath)
+		if err != nil {
+			return nil, err
+		}
+		pkg, err := build.ImportDir(AbsImportPath, 0)
+		if err != nil {
+			return nil, err
+		}
+		return pkg, nil
+	}
 	for _, gopath := range gopath {
 		pkg, err := build.Import(importPath, gopath, 0)
 		if err != nil {

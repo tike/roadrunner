@@ -52,12 +52,9 @@ func doWatch(watcher *fsnotify.Watcher, pkg string, args []string, done, restart
 			if filepath.Ext(event.Name) != ".go" {
 				break
 			}
-			switch event.Op {
-			case fsnotify.Create, fsnotify.Write, fsnotify.Rename, fsnotify.Remove:
-				cancel()
-				log.Printf("event: \033[32m%s\033[0m", event)
-				cancel = initiateRun(pkg, args, verbose)
-			}
+			cancel()
+			log.Printf("event: \033[32m%s\033[0m", event)
+			cancel = initiateRun(pkg, args, verbose)
 		case err := <-watcher.Errors:
 			log.Printf("\033[31mwatch error: %s\033[0m", err)
 		case <-done:
@@ -74,6 +71,16 @@ func dropRedundant(threshold time.Duration, events <-chan fsnotify.Event, verbos
 		defer thres.Stop()
 
 		for event := range events {
+			switch event.Op {
+			case fsnotify.Create, fsnotify.Write, fsnotify.Rename, fsnotify.Remove:
+				break
+			default:
+				if verbose {
+					log.Printf("dropped irrelevant type of event: %s", event)
+				}
+				continue
+			}
+
 			select {
 			case <-thres.C:
 				filtered <- event
@@ -82,7 +89,7 @@ func dropRedundant(threshold time.Duration, events <-chan fsnotify.Event, verbos
 				}
 			default:
 				if verbose {
-					log.Printf("filtered: %s", event)
+					log.Printf("filtered event (time threshold): %s", event)
 				}
 				continue
 			}

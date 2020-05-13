@@ -3,10 +3,11 @@ package scan
 import (
 	"fmt"
 	"go/build"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
+	"regexp"
 	"strings"
 )
 
@@ -18,27 +19,56 @@ func GetPkgs(importPath string) (PkgPack, string, error) {
 	}
 	pack[importPath] = pkg
 
+	gopath := gopaths()
 	vendorFolder := detectVendorFolder(pkg.Dir)
-	if vendorFolder != "" {
+	pkgBase := pkgBase(pkg.Dir)
+	switch {
+	case vendorFolder != "":
 		log.Printf("vendor folder detected: %s", vendorFolder)
-	} else {
-		log.Printf("no vendor folder found.")
-	}
-
-	var gopath []string
-	if vendorFolder != "" {
 		gopath = append([]string{vendorFolder}, gopaths()...)
-	} else {
-		gopath = gopaths()
+	case pkgBase != "":
+		gopath = []string{pkg.Dir}
 	}
 
 	for _, dep := range pkg.Imports {
-		pack, err = getPkgs(pack, dep, gopath...)
+		if vendorFolder == "" && !strings.HasPrefix(dep, pkgBase) {
+			continue
+		}
+
+		pack, err = getPkgs(pack, dep, pkgBase, gopath...)
 		if err != nil {
 			return nil, "", err
 		}
 	}
 	return pack, pkg.ImportPath, nil
+}
+
+func pkgBase(path string) string {
+	for prfx := path; filepath.Base(prfx) != "src"; prfx = filepath.Dir(prfx) {
+		gomod := filepath.Join(prfx, "go.mod")
+		_, err := os.Stat(gomod)
+		if err != nil {
+			continue
+		}
+		log.Println("go.mod found:", gomod)
+
+		dat, err := ioutil.ReadFile(gomod)
+		if err != nil {
+			panic(err)
+		}
+
+		matches := regexp.MustCompile("module ([^\n]+)").FindSubmatch(dat)
+		if matches == nil || len(matches) < 2 {
+			fmt.Println("matches", matches)
+			os.Exit(1)
+		}
+
+		pkgbase := string(matches[1])
+		log.Println("pkg basepath", pkgbase)
+		return pkgbase
+
+	}
+	return ""
 }
 
 func detectVendorFolder(path string) string {
@@ -56,7 +86,7 @@ func detectVendorFolder(path string) string {
 	return ""
 }
 
-func getPkgs(found PkgPack, importPath string, gopath ...string) (PkgPack, error) {
+func getPkgs(found PkgPack, importPath string, goMod string, gopath ...string) (PkgPack, error) {
 	if importPath == "C" {
 		return found, nil
 	}
@@ -69,16 +99,18 @@ func getPkgs(found PkgPack, importPath string, gopath ...string) (PkgPack, error
 	if err != nil {
 		return found, err
 	}
-	//	if pkg.Goroot {
-	//		return found, err
-	//	}
+
 	found[importPath] = pkg
 
 	for _, imp := range pkg.Imports {
-		if _, ok := found[importPath]; ok {
+		if _, ok := found[imp]; ok {
 			continue
 		}
-		_, err := getPkgs(found, imp, gopath...)
+		if goMod != "" && !strings.HasPrefix(imp, goMod) {
+			continue
+		}
+
+		_, err := getPkgs(found, imp, goMod, gopath...)
 		if err != nil {
 			return found, err
 		}
@@ -87,7 +119,7 @@ func getPkgs(found PkgPack, importPath string, gopath ...string) (PkgPack, error
 }
 
 func findPkg(importPath string, gopath ...string) (*build.Package, error) {
-	if importPath[:1] == "." {
+	if build.IsLocalImport(importPath) {
 		AbsImportPath, err := filepath.Abs(importPath)
 		if err != nil {
 			return nil, err
@@ -116,5 +148,5 @@ func gopaths() []string {
 	if strings.Contains(paths, pathListSep) {
 		pathlist = strings.Split(paths, pathListSep)
 	}
-	return append(pathlist, runtime.GOROOT())
+	return pathlist
 }

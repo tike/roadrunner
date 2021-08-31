@@ -12,9 +12,9 @@ import (
 )
 
 func GetPkgs(importPath string) (PkgPack, string, error) {
-	pkgBase := gomodRoot(importPath)
-	if pkgBase == "" {
-		return gopathBuild(importPath)
+	pkgBase, gomod := gomodRoot(importPath)
+	if !gomod {
+		return gopathBuild(pkgBase)
 	}
 	return gomodBuild(pkgBase, importPath)
 }
@@ -58,11 +58,17 @@ func gomodImports(pack PkgPack, pkgBase string, pkg *build.Package) (PkgPack, er
 	return pack, nil
 }
 
-func gomodRoot(path string) string {
-	for prfx := path; filepath.Base(prfx) != "src"; prfx = filepath.Dir(prfx) {
+func gomodRoot(path string) (string, bool) {
+	parts := []string{}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		panic(err)
+	}
+	for prfx := absPath; filepath.Base(prfx) != "src"; prfx = filepath.Dir(prfx) {
 		gomod := filepath.Join(prfx, "go.mod")
 		_, err := os.Stat(gomod)
 		if err != nil {
+			parts = append([]string{filepath.Base(prfx)}, parts...)
 			continue
 		}
 		log.Println("go.mod found:", gomod)
@@ -79,11 +85,10 @@ func gomodRoot(path string) string {
 		}
 
 		pkgbase := string(matches[1])
-		log.Println("pkg basepath", pkgbase)
-		return pkgbase
+		return pkgbase, true
 
 	}
-	return ""
+	return strings.Join(parts, "/"), false
 }
 
 func gopathBuild(importPath string) (PkgPack, string, error) {

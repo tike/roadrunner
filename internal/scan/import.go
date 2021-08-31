@@ -12,38 +12,53 @@ import (
 )
 
 func GetPkgs(importPath string) (PkgPack, string, error) {
-	pack := make(PkgPack)
-	pkg, err := findPkg(importPath, gopaths()...)
+	pkgBase := gomodRoot(importPath)
+	if pkgBase == "" {
+		return gopathBuild(importPath)
+	}
+	return gomodBuild(pkgBase, importPath)
+}
+
+func gomodBuild(pkgBase, importPath string) (PkgPack, string, error) {
+	if build.IsLocalImport(importPath) {
+		importPath = filepath.Join(pkgBase, importPath)
+	}
+
+	pkg, err := build.Import(importPath, pkgBase, 0)
 	if err != nil {
 		return nil, "", err
 	}
-	pack[importPath] = pkg
 
-	gopath := gopaths()
-	vendorFolder := detectVendorFolder(pkg.Dir)
-	pkgBase := pkgBase(pkg.Dir)
-	switch {
-	case vendorFolder != "":
-		log.Printf("vendor folder detected: %s", vendorFolder)
-		gopath = append([]string{vendorFolder}, gopaths()...)
-	case pkgBase != "":
-		gopath = []string{pkg.Dir}
+	pack := make(PkgPack)
+	pack, err = gomodImports(pack, pkgBase, pkg)
+	if err != nil {
+		return nil, "", err
 	}
 
-	for _, dep := range pkg.Imports {
-		if vendorFolder == "" && !strings.HasPrefix(dep, pkgBase) {
-			continue
-		}
-
-		pack, err = getPkgs(pack, dep, pkgBase, gopath...)
-		if err != nil {
-			return nil, "", err
-		}
-	}
 	return pack, pkg.ImportPath, nil
 }
 
-func pkgBase(path string) string {
+func gomodImports(pack PkgPack, pkgBase string, pkg *build.Package) (PkgPack, error) {
+	pack[pkg.ImportPath] = pkg
+	for _, dep := range pkg.Imports {
+		if !strings.HasPrefix(dep, pkgBase) {
+			continue
+		}
+		if _, ok := pack[dep]; ok {
+			continue
+		}
+
+		depPack, err := build.Import(dep, pkgBase, 0)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		gomodImports(pack, pkgBase, depPack)
+	}
+	return pack, nil
+}
+
+func gomodRoot(path string) string {
 	for prfx := path; filepath.Base(prfx) != "src"; prfx = filepath.Dir(prfx) {
 		gomod := filepath.Join(prfx, "go.mod")
 		_, err := os.Stat(gomod)
@@ -69,6 +84,31 @@ func pkgBase(path string) string {
 
 	}
 	return ""
+}
+
+func gopathBuild(importPath string) (PkgPack, string, error) {
+	pack := make(PkgPack)
+	pkg, err := findPkg(importPath, gopaths()...)
+	if err != nil {
+		return nil, "", err
+	}
+	pack[importPath] = pkg
+
+	gopath := gopaths()
+	vendorFolder := detectVendorFolder(pkg.Dir)
+
+	if vendorFolder != "" {
+		log.Printf("vendor folder detected: %s", vendorFolder)
+		gopath = append([]string{vendorFolder}, gopaths()...)
+	}
+
+	for _, dep := range pkg.Imports {
+		pack, err = getPkgs(pack, dep, "", gopath...)
+		if err != nil {
+			return nil, "", err
+		}
+	}
+	return pack, pkg.ImportPath, nil
 }
 
 func detectVendorFolder(path string) string {

@@ -145,6 +145,10 @@ func getPkgs(found PkgPack, importPath string, gopath ...string) (PkgPack, error
 		return found, err
 	}
 
+	if pkg.Goroot {
+		return found, nil
+	}
+
 	found[importPath] = pkg
 
 	for _, imp := range pkg.Imports {

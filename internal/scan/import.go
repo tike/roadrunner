@@ -108,7 +108,7 @@ func gopathBuild(importPath string) (PkgPack, string, error) {
 	}
 
 	for _, dep := range pkg.Imports {
-		pack, err = getPkgs(pack, dep, "", gopath...)
+		pack, err = getPkgs(pack, dep, gopath...)
 		if err != nil {
 			return nil, "", err
 		}
@@ -131,7 +131,7 @@ func detectVendorFolder(path string) string {
 	return ""
 }
 
-func getPkgs(found PkgPack, importPath string, goMod string, gopath ...string) (PkgPack, error) {
+func getPkgs(found PkgPack, importPath string, gopath ...string) (PkgPack, error) {
 	if importPath == "C" {
 		return found, nil
 	}
@@ -151,11 +151,8 @@ func getPkgs(found PkgPack, importPath string, goMod string, gopath ...string) (
 		if _, ok := found[imp]; ok {
 			continue
 		}
-		if goMod != "" && !strings.HasPrefix(imp, goMod) {
-			continue
-		}
 
-		_, err := getPkgs(found, imp, goMod, gopath...)
+		_, err := getPkgs(found, imp, gopath...)
 		if err != nil {
 			return found, err
 		}
